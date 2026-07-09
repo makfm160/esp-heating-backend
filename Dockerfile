@@ -1,44 +1,32 @@
-# 1. Alpine helyett a stabil Debian Slim alapra váltunk (Node 22)
-FROM node:22-slim AS base
-RUN apt-get update && apt-get install -y openssl ca-certificates && rm -rf /var/lib/apt/lists/*
-
-# 2. Függőségek
-FROM base AS deps
+FROM node:20-alpine AS builder
 WORKDIR /app
-
 COPY package*.json ./
 COPY prisma ./prisma/
 
-# Sima npm install, a Debian alatt nem fog elhasalni
-RUN npm install
+# Ha a 'mybooks'-nál működik az npm ci, itt is működnie kell, de ha mégis elakadna, 
+# az npm install --legacy-peer-deps-szel kivédjük a verzió-ütközéseket
+RUN npm install --legacy-peer-deps
 
-# 3. Építés
-FROM base AS builder
-WORKDIR /app
-COPY --from=deps /app/node_modules ./node_modules
+RUN DATABASE_URL=postgresql://localhost:5432/db npx prisma generate
 COPY . .
 
-ENV DATABASE_URL="postgresql://mock:mock@localhost:5432/mock"
-RUN npx prisma generate
-RUN npm run build
+# Letöröljük a bemásolt .env-et a build idejére, hogy a Next.js véletlenül se tudja beolvasni
+RUN rm -f .env
 
-# 4. Futási környezet
-FROM base AS runner
+# Átverjük a Next.js-t a build fázisban egy minimális stringgel
+RUN DATABASE_URL=postgresql://localhost:5432/db npm run build
+
+FROM node:20-alpine AS runner
 WORKDIR /app
-
 ENV NODE_ENV=production
 
-RUN groupadd --system --gid 1001 nodejs
-RUN useradd --system --uid 1001 nextjs
-
+# Csak a kész, lefordított fájlokat és a szükséges node_modules-t visszük át a tiszta képbe
+COPY --from=builder /app/package*.json ./
+COPY --from=builder /app/.next ./.next
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/public ./public
-COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
-COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
-USER nextjs
-
+# A padlófűtés backend a 3000-es porton fog figyelni
 EXPOSE 3000
-ENV PORT=3000
-ENV HOSTNAME="0.0.0.0"
-
-CMD ["node", "server.js"]
+CMD ["npx", "next", "start", "--hostname", "0.0.0.0", "--port", "3000"]
