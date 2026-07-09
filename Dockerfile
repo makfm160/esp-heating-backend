@@ -8,14 +8,11 @@ COPY package*.json ./
 RUN npm install --legacy-peer-deps
 
 COPY . .
-
-# Letöröljük a .env-et a build idejére
 RUN rm -f .env
 
-# 1. LÉPÉS: Legeneráljuk a Prismát (most már a jó Next.js verzió mellett imádni fogja)
+# Most már a jó verziókkal ez a sor is tökéletesen le fog futni a felhőben!
 RUN DATABASE_URL=postgresql://localhost:5432/db npx prisma generate
 
-# 2. LÉPÉS: Lefuttatjuk a Next.js buildet (mivel van Prisma kliens, sikeres lesz!)
 ENV NEXT_TELEMETRY_DISABLED=1
 RUN DATABASE_URL=postgresql://localhost:5432/db npm run build
 
