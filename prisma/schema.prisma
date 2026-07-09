@@ -1,0 +1,47 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// 1. Az ESP32 eszközök táblája
+model Device {
+  macAddress  String   @id // Az ESP32 egyedi MAC címe
+  name        String?  // Pl. "Kazánház ESP32"
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  sensors     Sensor[]
+  telemetries Telemetry[]
+}
+
+// 2. A DS18B20 szenzorok táblája (így nevesíthetőek a körök)
+model Sensor {
+  id          String      @id // A szenzor gyári 16 karakteres azonosítója
+  name        String?     // Pl. "Konyha előremenő", "Nappali visszatérő"
+  deviceMac   String      // Melyik ESP32-re van kötve fizikalag
+  device      Device      @relation(fields: [deviceMac], references: [macAddress], onDelete: Cascade)
+  createdAt   DateTime    @default(now())
+  telemetries Telemetry[]
+}
+
+// 3. A nyers mérési adatok (ide ömlik majd a percenkénti adat)
+model Telemetry {
+  id              BigInt   @id @default(autoincrement()) // BigInt a rengeteg adat miatt
+  createdAt       DateTime @default(now())
+  deviceMac       String
+  device          Device   @relation(fields: [deviceMac], references: [macAddress], onDelete: Cascade)
+  sensorId        String
+  sensor          Sensor   @relation(fields: [sensorId], references: [id], onDelete: Cascade)
+  wifiRssi        Int
+  uptimeSec       Int
+  sensorType      String   // "DS18B20"
+  measurementType String   // "temperature"
+  unit            String   // "C"
+  value           Float    // Pl. 23.55
+
+  @@index([createdAt])      // Idő alapú grafikonok gyorsításához
+  @@index([deviceMac, sensorId])
+}
