@@ -7,6 +7,7 @@ COPY prisma ./prisma/
 # az npm install --legacy-peer-deps-szel kivédjük a verzió-ütközéseket
 RUN npm install --legacy-peer-deps
 
+ENV PRISMA_ENGINES_CHECKSUM_IGNORE_MISSING=1
 RUN DATABASE_URL=postgresql://localhost:5432/db npx prisma generate
 COPY . .
 
