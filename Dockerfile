@@ -12,10 +12,12 @@ COPY . .
 # Letöröljük a .env-et a build idejére
 RUN rm -f .env
 
-# A TRÜKK: Megkérjük a Next.js-t, hogy hagyja figyelmen kívül a TypeScript/Lint hibákat a build során,
-# így nem fog összeomlani amiatt, hogy a Prisma kliens még nincs legenerálva!
+# 1. LÉPÉS: Legeneráljuk a Prismát (most már a jó Next.js verzió mellett imádni fogja)
+RUN DATABASE_URL=postgresql://localhost:5432/db npx prisma generate
+
+# 2. LÉPÉS: Lefuttatjuk a Next.js buildet (mivel van Prisma kliens, sikeres lesz!)
 ENV NEXT_TELEMETRY_DISABLED=1
-RUN DATABASE_URL=postgresql://localhost:5432/db npx next build --disable-lint
+RUN DATABASE_URL=postgresql://localhost:5432/db npm run build
 
 # 2. Futási fázis
 FROM node:20-slim AS runner
@@ -31,7 +33,4 @@ COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/public ./public
 
 EXPOSE 3000
-
-# Amikor a Brixen elindul a konténer, OT helyben generáljuk le a Prismát (ott már látja a jó adatbázist),
-# és utána indítjuk el a Next.js-t!
-CMD ["sh", "-c", "npx prisma generate && node node_modules/.bin/next start --hostname 0.0.0.0 --port 3000"]
+CMD ["node", "node_modules/.bin/next", "start", "--hostname", "0.0.0.0", "--port", "3000"]
