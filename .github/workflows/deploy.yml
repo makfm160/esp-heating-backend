@@ -1,0 +1,45 @@
+name: Build and Push Docker Image
+
+on:
+  push:
+    branches: [ "main" ]
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write # Ez kell ahhoz, hogy írni tudjon a ghcr.io-ra
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    # Bejelentkezés a GitHub Container Registry-be
+    - name: Login to GitHub Container Registry
+      uses: actions/login-action@v3
+      with:
+        registry: ghcr.io
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Set up Docker Buildx
+      uses: actions/setup-buildx-action@v3
+
+    # Kisbetűssé alakítjuk a felhasználónevet, mert a Docker tagek nem szeretik a nagybetűt
+    - name: Downcase repo owner
+      run: |
+        echo "OWNER_LC=${OWNER,,}" >> $GITHUB_ENV
+      env:
+        OWNER: ${{ github.repository_owner }}
+
+    # Építés és feltolás a GHCR-re
+    - name: Build and push
+      uses: actions/build-push-action@v5
+      with:
+        context: .
+        file: ./Dockerfile
+        push: true
+        tags: ghcr.io/${{ env.OWNER_LC }}/esp-heating-backend:latest
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
