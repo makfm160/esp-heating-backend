@@ -1,35 +1,35 @@
-FROM node:22-alpine AS base
+# 1. Alpine helyett a stabil Debian Slim alapra váltunk (Node 22)
+FROM node:22-slim AS base
+RUN apt-get update && apt-get install -y openssl ca-certificates && rm -rf /var/lib/apt/lists/*
 
+# 2. Függőségek
 FROM base AS deps
-RUN apk add --no-cache libc6-compat openssl openssl-dev dumb-init
 WORKDIR /app
 
 COPY package*.json ./
 COPY prisma ./prisma/
 
-# A PRISMA_CLI_BINARY_TARGETS segít az Alpine Linuxnak, 
-# az --ignore-scripts pedig megakadályozza, hogy az npm install alatt fusson el a Prisma
-ENV PRISMA_CLI_BINARY_TARGETS=linux-musl-openssl-3.0.x
-RUN npm install --ignore-scripts
+# Sima npm install, a Debian alatt nem fog elhasalni
+RUN npm install
 
+# 3. Építés
 FROM base AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
-# Itt generáljuk le tisztán a Prismát, egy kamu DATABASE_URL-lel, 
-# hogy a build fázisban ne keressen valódi adatbázist
 ENV DATABASE_URL="postgresql://mock:mock@localhost:5432/mock"
 RUN npx prisma generate
 RUN npm run build
 
+# 4. Futási környezet
 FROM base AS runner
 WORKDIR /app
 
 ENV NODE_ENV=production
 
-RUN addgroup --system --gid 1001 nodejs
-RUN adduser --system --uid 1001 nextjs
+RUN groupadd --system --gid 1001 nodejs
+RUN useradd --system --uid 1001 nextjs
 
 COPY --from=builder /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
