@@ -1,33 +1,33 @@
-FROM node:20-alpine AS builder
+# 1. Teljes értékű Node 20 (Debian slim alap), nem Alpine!
+FROM node:20-slim AS builder
 WORKDIR /app
 
-# Szükséges Linux csomagok az Alpine-hoz
-RUN apk add --no-cache openssl libc6-compat
+# Telepítjük a Prismához szükséges alapvető rendszercsomagokat
+RUN apt-get update && apt-get install -y openssl ca-certificates && rm -rf /var/lib/apt/lists/*
 
 COPY package*.json ./
 COPY prisma ./prisma/
 
-# Telepítjük a csomagokat (ez helyben lefut)
+# Függőségek telepítése
 RUN npm install --legacy-peer-deps
+
+# Most már biztonságosan lefut a generálás, mert a Debian alatt stabil a Prisma motorja
+RUN DATABASE_URL=postgresql://localhost:5432/db npx prisma generate
 
 COPY . .
 
-# Letöröljük a .env-et, ha be lett volna másolva
+# Letöröljük a .env-et a build idejére
 RUN rm -f .env
 
-# KIKAPCSOLJUK a Prisma ellenőrzést a Next.js build idejére
-ENV NEXT_TELEMETRY_DISABLED=1
-ENV PRISMA_CLIENT_ENGINE_TYPE='binary'
-
-# Lefordítjuk a Next.js-t Prisma generálás nélkül
+# Lefuttatjuk a Next.js buildet
 RUN DATABASE_URL=postgresql://localhost:5432/db npm run build
 
-FROM node:20-alpine AS runner
+# 2. Futási fázis (szintén a stabil Debian slim alapon)
+FROM node:20-slim AS runner
 WORKDIR /app
 ENV NODE_ENV=production
 
-# A futtató környezetnek is kell az openssl a Prisma miatt
-RUN apk add --no-cache openssl
+RUN apt-get update && apt-get install -y openssl ca-certificates && rm -rf /var/lib/apt/lists/*
 
 COPY --from=builder /app/package*.json ./
 COPY --from=builder /app/.next ./.next
@@ -36,6 +36,4 @@ COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/public ./public
 
 EXPOSE 3000
-
-# A TRÜKK: Indításkor generáljuk le a Prismát, majd indítjuk a Next.js-t!
-CMD ["sh", "-c", "npx prisma generate && node node_modules/.bin/next start --hostname 0.0.0.0 --port 3000"]
+CMD ["node", "node_modules/.bin/next", "start", "--hostname", "0.0.0.0", "--port", "3000"]
