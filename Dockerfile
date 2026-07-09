@@ -6,21 +6,19 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y openssl ca-certificates && rm -rf /var/lib/apt/lists/*
 
 COPY package*.json ./
-COPY prisma ./prisma/
 
 # Függőségek telepítése
 RUN npm install --legacy-peer-deps
 
-# Most már biztonságosan lefut a generálás, mert a Debian alatt stabil a Prisma motorja
-RUN DATABASE_URL=postgresql://localhost:5432/db npx prisma generate || (echo "=== PRISMA ERROR LOG START ===" && npx prisma generate --verbose && echo "=== PRISMA ERROR LOG END ===" && exit 1)
 
 COPY . .
 
-# Letöröljük a .env-et a build idejére
-RUN rm -f .env
-
-# Lefuttatjuk a Next.js buildet
+# Most már biztonságosan lefut a generálás, mert a Debian alatt stabil a Prisma motorja
+RUN DATABASE_URL=postgresql://localhost:5432/db npx prisma generate 
 RUN DATABASE_URL=postgresql://localhost:5432/db npm run build
+
+
+
 
 # 2. Futási fázis (szintén a stabil Debian slim alapon)
 FROM node:20-slim AS runner
