@@ -12,7 +12,7 @@ COPY prisma ./prisma/
 RUN npm install --legacy-peer-deps
 
 # Most már biztonságosan lefut a generálás, mert a Debian alatt stabil a Prisma motorja
-RUN DATABASE_URL=postgresql://localhost:5432/db npx prisma generate
+RUN DATABASE_URL=postgresql://localhost:5432/db npx prisma generate || (echo "=== PRISMA ERROR LOG START ===" && npx prisma generate --verbose && echo "=== PRISMA ERROR LOG END ===" && exit 1)
 
 COPY . .
 
