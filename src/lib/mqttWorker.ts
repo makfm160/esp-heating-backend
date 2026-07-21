@@ -9,7 +9,7 @@ interface SensorPayload {
 interface IncomingPayload {
   macAddress: string;
   sensor_D15?: SensorPayload;
-  sensor_D2?:  SensorPayload;
+  sensor_D5?:  SensorPayload;
   sensor_D4?:  SensorPayload;
 }
 
@@ -36,7 +36,7 @@ export function startMqttWorker() {
       }
 
       // Végigmegyünk a 3 lehetséges szenzor lábon, amit az ESP32 küldhet
-      const sensorKeys: (keyof IncomingPayload)[] = ['sensor_D15', 'sensor_D2', 'sensor_D4'];
+      const sensorKeys: (keyof IncomingPayload)[] = ['sensor_D15', 'sensor_D5', 'sensor_D4'];
 
       for (const key of sensorKeys) {
         const sensorData = payload[key] as SensorPayload | undefined;

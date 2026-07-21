@@ -32,6 +32,7 @@ model Sensor {
 model Telemetry {
   id              BigInt   @id @default(autoincrement()) // BigInt a rengeteg adat miatt
   createdAt       DateTime @default(now())
+  measuredAt      DateTime?
   deviceMac       String
   device          Device   @relation(fields: [deviceMac], references: [macAddress], onDelete: Cascade)
   sensorId        String
@@ -44,5 +45,6 @@ model Telemetry {
   value           Float    // Pl. 23.55
 
   @@index([createdAt])      // Idő alapú grafikonok gyorsításához
+  @@index([measuredAt])
   @@index([deviceMac, sensorId])
 }
